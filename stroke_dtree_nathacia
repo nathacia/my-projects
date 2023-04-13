@@ -1,6 +1,5 @@
-#midterm exam pt2 
-#rscript
-#nathacia
+#nathacia nathacia
+#data tree on stroke likelihood
 
 dtree <- read.csv("/Users/nathacia/Desktop/datamining/stroke_data.csv")
 class(dtree)
