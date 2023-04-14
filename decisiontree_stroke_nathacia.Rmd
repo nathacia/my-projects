@@ -1,0 +1,128 @@
+---
+title: "Decision Tree on Stroke Likelihood"
+author: "Nathacia Nathacia"
+date: '2022-08-13'
+output: pdf_document
+---
+
+#### Loading packages and data
+```{r, results='hide'}
+library(tree)
+dtree <- read.csv("/Users/nathacia/Desktop/r wd/bus315/stroke_data.csv")
+View(dtree)
+```
+
+
+### Investigating the data
+```{r}
+class(dtree)
+names(dtree)
+head(dtree)
+tail(dtree)
+hist(dtree$age)
+str(dtree)
+summary(dtree)
+```
+I analyzed the data by using various inspecting functions to get a better idea of the dataset. I used the histogram function to take a closer look at the age variable and from there, I can see that the data included mostly older people, particularly those between the age ranges of 50-80 years old. This made a lot of sense as stroke usually occurs within those age ranges.
+
+
+### Preprocessing
+```{r}
+dtree$bmi <- as.numeric(dtree$bmi)
+dtree <- na.omit(dtree)
+dtree$gender <- as.factor(dtree$gender)
+dtree$ever_married <- as.factor(dtree$ever_married)
+dtree$work_type <- as.factor(dtree$work_type)
+dtree$Residence_type <- as.factor(dtree$Residence_type)
+dtree$smoking_status <- as.factor(dtree$smoking_status)
+stroke_likelihood <- ifelse(dtree$stroke>=1, "Yes", "No")
+stroke_likelihood <- as.factor(stroke_likelihood)
+dtree <- data.frame(dtree, stroke_likelihood)
+dtree <- subset(dtree, select=-stroke)
+dtree <- subset(dtree, select=-ever_married)
+dtree <- subset(dtree, select=-id)
+dtree <- subset(dtree, select=-work_type)
+dtree <- subset(dtree, select=-Residence_type)
+summary(dtree)
+```
+In the preprocessing stage, I had to change the attributes gender, “evermarried”, work type, residence type, and smoking status to factor as they were originally character data types. I then created a new variable named ‘stroke_likelihood’ using the ifelse() function, based on the stroke variable. If ‘stroke’ is larger than or equal to one (which means yes, stroke), the result will be ‘YES’ and otherwise is ‘NO’. After adding the stroke_likelihood to the data set (dtree) using the data.frame() function, I removed the stroke variable from the dataset because it is highly correlated to the stroke_likelihood variable. If both were present in the dataset, the decision tree will swing in favor of the stroke variable and thus, the results will be inflated/deflated and be inaccurate. After some analysis, I decided to also remove the ever married, work type, residence type, and id variables. The id is unique to each person, so it is an unsuitable variable to be tested on. The ever married, work type, and residence type does not contribute to the prediction of the likelihood of having a stroke, which is why I decided to leave them out of the data tree. By doing so, I am reducing the multidimensionality of the analysis and keeping only the ones that I feel are important to the analysis. After removing the variables and changing the variables’ data types, I looked at the summary to see what it looked like after the preprocessing. After the preprocessing, it is easier to observe certain variables such as the gender and smoking status compared to the summary before preprocessing.
+
+
+
+### Training
+```{r}
+dtree.stroke <- tree(stroke_likelihood~., dtree)
+summary(dtree.stroke)
+plot(dtree.stroke)
+text(dtree.stroke,pretty=0)
+print(dtree.stroke)
+```
+In the training part, I assigned the tree algorithm with the stroke_likelihood being predicted based on the dtree dataset into the variable named dtree.stroke. By doing so, we can build a decision tree based on all 455 observations (not 500 because NA values have been omitted). The misclassification rate is 24.4%, meaning that based on the observations, 24.4% of the class labels are misclassified. I also plotted and added text (with ‘pretty=0’ to make the labels more meaningful) to add labels.
+
+
+### Splitting
+```{r}
+set.seed(123)
+train.index <- sample(1:nrow(dtree), 300)
+train.set <- dtree[train.index,]
+class(train.set)
+```
+In the splitting process, I first used the function set.seed(123) in order to be able to replicate the random sampling. Creating a new variable called train.index, I used the sample() function in order to be able to randomly sample 300 records. In order to do the splitting, I created a train.set variable (to assign as the dataset for training), and used the train.index to extract the random 300 sample records into the training set. The class of the train.set is data frame.
+
+
+### Training
+Now that I have the 300 records to use for training, I train my model by creating a new variable named dtree.tree and build the decision tree to predict the likelihood of stroke (stroke_likelihood variable) based on the training dataset (train.set). The plot of the tree with text and summary looks like:
+```{r}
+dtree.tree <- tree(stroke_likelihood~., train.set)
+plot(dtree.tree)
+text(dtree.tree, pretty=0)
+summary(dtree.tree)
+```
+The misclassification error rate has improved slightly from 24.4% to 15.7% now.
+
+
+### Testing
+```{r}
+test.set <- dtree[-train.index,]
+stroke.test <- stroke_likelihood[-train.index]
+tree.predict <- predict(dtree.tree, test.set, type="class")
+table(tree.predict, stroke.test)
+accuracy = (55+55)/155
+accuracy
+```
+After creating the training dataset, I then created the testing dataset. Creating the new variable named test.set, I assigned the dtree and excluded the 300 random sample records, which leaves me with 155 records for the test.set. I then created another variable known as stroke.text to include the known variables in the stroke_likelihood in order to be able to make comparisons and observe how many of the records are correctly predicted based on the actual values. In the stroke.test, I also excluded the 300 records in the train.index. When testing, I would like to test the predictive power of the model and I do this by creating the variable tree.predict and use the function predict() to predict based on the dtree.tree model to test classes in the test dataset (test.set). I then used the table() function to tabulate the predicted classes. The table will include the predictive classes and the actual classes. This gives us an accuracy of (55+55)/155 which is approximately 71%.
+
+
+### Crossvalidation
+```{r}
+crossvalidation.dtree <- cv.tree(dtree.tree, FUN=prune.misclass)
+crossvalidation.dtree
+```
+Following this is the cross validation step, and I created a new variable called crossvalidation.dtree and using the cv.tree() function, I am cross validating the trained model (dtree.tree) and base it on the prune.misclass function. By doing so, the tree that misclassifies the most will be removed and only the tree with the lowest misclassification will be kept. I will choose the 79 from the $dev since it is the smallest because it means that it has the least errors. This means I will be choosing the tree with the size 8 as it results in the least errors.
+
+
+### Pruning
+```{r}
+pruned.tree <- prune.misclass(dtree.tree, best=8)
+plot(pruned.tree)
+text(pruned.tree, pretty=0)
+summary(pruned.tree)
+```
+In the pruning step, I create the variable pruned.tree and prune the decision tree and look at the best of the size 8. I proceeded to plot the tree and add labels. I also looked at the summary to find the misclassification error rate of 17.3%.
+
+
+### Testing pruned tree
+```{r}
+pruned.test.pred <- predict(pruned.tree, test.set, type="class")
+table(stroke.test, pruned.test.pred)
+(57+57)/155
+```
+I then tested the pruned tree by creating the variable pruned.test.predict and predict based on the pruned.tree to test the class based on the test.set. I then tabulated the stroke.test based on the results gained from the pruned.test.pred. The accuracy is calculated as (57+57)/155 which is 73.5%.
+
+
+### Resulting decision tree
+```{r}
+pruned.tree
+```
+This is the optimal tree and we can see that it is much easier to deduce the likelihood of stroke. We can see that if the age is under 44.5, there is no chance (or little to none) for stroke to occur. If the age is equal to or larger than 67.5, there is a chance for stroke to occur. We can also see that if age is lower than 67.5 and bmi is higher than or equal to 44.4, there is also no chance for stroke. If 44.5 ≤ age<63.5, bmi is less than 44.4, heart_disease is less than 0.5 and smoking status is unknown, we can also see that there is no chance for stroke to occur. These are the types of deductions that we can make from the optimized, pruned tree.
+
