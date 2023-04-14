@@ -1,0 +1,143 @@
+---
+title: 'Association Rule Mining Analysis: Groceries dataset'
+author: "Nathacia Nathacia"
+date: '2022-08-29'
+output:
+  html_document:
+    df_print: paged
+---
+
+#### Loading packages and dataset
+```{r, results='hide'}
+library(arules)
+library(arulesViz)
+
+data(package='arules')
+
+data(Groceries)
+class(Groceries)
+str(Groceries)
+
+View(Groceries)
+```
+
+
+### Investigating data
+```{r}
+inspect(Groceries)
+inspect(head(Groceries))
+inspect(head(Groceries,1))
+inspect(tail(Groceries))
+inspect(tail(Groceries,4))
+
+size(head(Groceries))
+size(tail(Groceries))
+
+LIST(head(Groceries))
+
+frequentitems <- eclat(Groceries, parameter = list(supp=.05, maxlen=5))
+inspect(frequentitems)
+```
+I start by loading the Groceries dataset from the arules package and performs an exploratory analysis of the data using the inspect() function.
+
+
+### Visualize frequency
+```{r}
+itemFrequencyPlot(Groceries)
+itemFrequencyPlot(Groceries, topN = 5)
+itemFrequencyPlot(Groceries, topN = 15, type = 'absolute')
+```
+
+
+### Generate rules
+```{r}
+rules <- apriori(Groceries, parameter = list(supp=.001, conf=.5))
+rules
+rules_conf <- sort(rules, by='confidence', decreasing = TRUE)
+inspect(head(rules_conf,4)) 
+
+rules <- apriori(Groceries, parameter = list(supp=.001, conf=.5, maxlen=4))
+rules
+rules_conf <- sort(rules, by='confidence', decreasing = TRUE)
+inspect(head(rules_conf,4))
+```
+Next, the code generates association rules using the apriori() function, which takes parameters such as minimum support and minimum confidence to filter the rules. The results are sorted and the head of the resulting rules are displayed using the inspect() function.
+
+
+### Visualize rules
+```{r}
+plot(rules)
+plot(rules, interactive = T)
+subrules <- subset(rules, lift>10)
+plot(subrules, interactive = T)
+
+plot(subrules, method = 'matrix3d', measure = 'lift')
+plot(subrules, method = 'graph')
+```
+
+
+### Fix a consequence in the rules and predict a specific item
+How to fix a consequence in the rules and predict a specific item using the appearance parameter of the apriori() function.
+```{r}
+rules <- apriori(Groceries, parameter = list(supp=.01, conf=.5),
+                 appearance = list(default='lhs', rhs='whole milk'))
+rules
+rules_conf <- sort(rules, by='confidence', decreasing = T)
+inspect(head(rules_conf))
+```
+
+
+### Find items purchased after or along an item
+How to find items purchased after or along with a specific item by setting the appearance parameter to rhs for the consequent item and lhs for the antecedent item.
+```{r}
+rules <- apriori(Groceries, parameter = list(supp=.001, conf=.15),
+                 appearance = list(default='rhs', lhs='whole milk'))
+rules
+rules_conf <- sort(rules, by='confidence', decreasing = T)
+inspect(rules_conf)
+rules_conf <- sort(rules, by='lift', decreasing = T)
+inspect(rules_conf)
+```
+
+
+### Identify the most important rules
+The code can be modified to identify the most important rules using various measures such as lift, leverage, and conviction.
+```{r}
+rules_leverage <- sort(rules, by='leverage', decreasing = T)
+inspect(head(rules_leverage,4))
+```
+
+
+### Filter the rules based on specific items
+For example, we filter the rules that contain 'yogurt' as the consequent item
+```{r}
+rules_yogurt <- subset(rules, subset = rhs %in% "yogurt")
+inspect(head(rules_yogurt,4))
+```
+
+
+### Calculate rule metrics
+Calculate various metrics for the association rules such as lift, confidence, support, and coverage.
+```{r}
+metrics <- quality(rules)[1,]
+metrics
+```
+
+
+### Visualizations
+```{r}
+plot(rules, method = "scatterplot", measure=c("confidence","lift"))
+plot(rules, method = "graph")
+```
+
+
+### Pruning the rules
+Prune the rules based on certain criteria such as the minimum number of antecedents or consequents, and the minimum value of metrics such as lift or confidence. 
+```{r}
+rules_pruned <- subset(rules, subset = size(lhs)>=2 & lift>=2)
+inspect(head(rules_pruned,4))
+```
+
+
+## Conclusion
+In conclusion, the arules and arulesViz packages in R provide powerful tools for association rule mining and visualization. With these packages, we can easily generate association rules, filter them based on minimum support and confidence, and visualize them in various formats such as scatter plots, matrix plots, and interactive network graphs. By exploring the Groceries dataset, we have demonstrated how these packages can be used to extract interesting insights from transaction data, such as identifying frequent itemsets, generating association rules, and exploring relationships between items in the dataset. These techniques have broad applications in fields such as marketing, retail, and e-commerce, where the ability to extract valuable insights from transaction data can lead to improved business decisions and increased revenue.
